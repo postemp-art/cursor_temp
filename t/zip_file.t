@@ -25,7 +25,7 @@ sub _write_file {
 
 # --- success: cleanup of stale *.archive*, unrelated files, zip_parts, cmd ---
 
-my $tmpdir = tempdir( 'zip_file_XXXXXX', TMPDIR => 1, CLEANUP => 1 );
+my $tmpdir = tempdir( 'zip_file_XXXXXX', TMPDIR => 1, CLEANUP => 0 );
 
 my $input = File::Spec->catfile( $tmpdir, 'input.txt' );
 _write_file( $input, "source\n" );
