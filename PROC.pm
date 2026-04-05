@@ -12,52 +12,42 @@ BEGIN {
 
     use base qw(Exporter);
 
-    our @EXPORT = qw(i_am_not_alone already_running save_lock_file );
-
     our @EXPORT_OK = qw(
         ipc_open3
 
     );
 }
 
+
 sub ipc_open3 {
     my $command = shift;
 
-    if ( !defined $command || $command eq '' ) {
-        return ('PROC::ipc_open3: empty command');
-    }
-
     my @out;
-    my ( $wtr, $rdr, $err );
+    my($wtr, $rdr, $err);
 
-    my $pid = open3( $wtr, $rdr, $err, $command );
-    close $wtr;
+    my $pid = open3( $wtr, $rdr, $err, "$command" );
+    waitpid( $pid, 0 );
+    my $child_exit_status = $? >> 8;
+    my $sel = IO::Select->new();
+    $sel->add($rdr, $err);
 
-    my $sel = IO::Select->new( $rdr, $err );
-
-    while ( $sel->count ) {
-        foreach my $fh ( $sel->can_read ) {
+    while( my @ready = $sel->can_read )
+    {
+        foreach my $fh (@ready)
+        {
             my $line = <$fh>;
-            if ( !defined $line ) {
+            if(not defined $line)
+            {
                 $sel->remove($fh);
                 next;
             }
             chomp $line;
             $line =~ s/\n//gx;
-            if ( $fh == $rdr ) {
-                push @out, $line;
-            }
-            elsif ( $fh == $err ) {
-                push @out, $line;
-            }
-            else {
-                die "Shouldn't be here\n";
-            }
+            if(      $fh == $rdr ) { push @out, $line; }
+            elsif(   $fh == $err ) { push @out, $line; }
+            else                   { die "Shouldn't be here\n"; }
         }
     }
-
-    waitpid( $pid, 0 );
-
     return @out;
 }
 
