@@ -25,7 +25,10 @@ print "OK: $r->{errstr}\n";
 print "Command: $r->{cmd}\n" if $r->{cmd};
 print "Parts (" . scalar( @{ $r->{zip_parts} } ) . "):\n";
 for my $p ( @{ $r->{zip_parts} } ) {
-    print "  $p->{fullpath}\n";
+    for my $key ( sort keys %{$p} ) {
+        print "  $key => $p->{$key}\n";
+    }
+    print "\n";
 }
 
 exit 0;

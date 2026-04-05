@@ -39,6 +39,7 @@ BEGIN {
     our @EXPORT = qw(
         zip_separate
         zip_file
+        archive_for_mail
     );
 
     # Functions and variables which can be optionally exported
@@ -48,6 +49,75 @@ BEGIN {
 
 =cut
 
+
+sub archive_for_mail{
+    my $params = shift;
+    my $file_in         = $params->{file_in};
+    my $dir_out         = $params->{dir_out};
+    my $archive_size_mb = $params->{archive_size_mb} || 20;
+
+    my $result = {
+        errno     => 0,
+        errstr    => 'It is ok',
+        zip_parts => []
+    };
+
+    while (1)
+    {
+        # X. Input data checks
+        if (!-e $file_in) {
+            $result->{errno}  = 1;
+            $result->{errstr} = "Input file not found: $file_in";
+            last;
+        }
+
+        # X. Get file size
+        my $file_size = FILE_TOOLS::get_file_stat({
+            filename    => $file_in,
+            suffix_mask => qr{\.[^\.]+$}i,
+        });
+
+        # X. Checking for errors
+        if ($file_size->{errno}) {
+            $result->{errno}  = $file_size->{errno};
+            $result->{errstr} = $file_size->{errstr};
+            last;
+        }
+
+        # X. If file size is less than $archive_size_mb, return $file_in
+        if ($file_size->{size} <= $archive_size_mb * 1024 * 1024) {
+            push @{ $result->{zip_parts} }, {
+                basename => basename($file_in),
+                fullpath => $file_in
+            };
+            last;
+        }
+
+        # X. Zip file
+        my $result_zip_separate = zip_separate({
+            file_in     => $file_in,
+            dir_out     => $dir_out,
+            zip_size_mb => $archive_size_mb,
+        });
+
+        # X. Checking for errors
+        if ($result_zip_separate->{errno}) {
+            $result->{errno}  = $result_zip_separate->{errno};
+            $result->{errstr} = $result_zip_separate->{errstr};
+            last;
+        }
+
+        if (@{ $result_zip_separate->{zip_parts} } > 1) {
+            $result->{errno}  = 5;
+            $result->{errstr} = 'More than one part is produced';
+            last;
+        }
+        # $result->{zip_parts} = $result_zip_separate->{zip_parts};
+
+        last;
+    }
+    return $result;
+}
 
 sub zip_file{
     my $params = shift;
