@@ -106,13 +106,9 @@ sub archive_for_mail{
             $result->{errstr} = $result_zip_separate->{errstr};
             last;
         }
-
-        if (@{ $result_zip_separate->{zip_parts} } > 1) {
-            $result->{errno}  = 5;
-            $result->{errstr} = 'More than one part is produced';
-            last;
-        }
-        # $result->{zip_parts} = $result_zip_separate->{zip_parts};
+        
+        # X. Merging results
+        $result = $result_zip_separate;
 
         last;
     }
