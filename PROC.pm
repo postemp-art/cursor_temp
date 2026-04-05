@@ -1,83 +1,64 @@
 package PROC;
 
-=head1 NAME
-
-PROC.pm - run shell commands and capture combined output
-
-=head1 UUID
-
-UUID: a1c2e3f4-d5b6-7890-abcd-ef1234567890
-
-=cut
-
 use strict;
 use warnings;
+use IPC::Open3 'open3';
+use IO::Select;
 
-use IPC::Open3 qw(open3);
-use Symbol qw(gensym);
+BEGIN {
+    require Exporter;
 
-our $VERSION = 1.00;
+    our $VERSION = 1.00;
 
-=head1 SUBROUTINES
+    use base qw(Exporter);
 
-=head2 ipc_open3
+    our @EXPORT = qw(i_am_not_alone already_running save_lock_file );
 
-  my @lines = PROC::ipc_open3($shell_command);
+    our @EXPORT_OK = qw(
+        ipc_open3
 
-Runs I<$shell_command> via F</bin/sh -c>. Returns a list of lines (without
-trailing newlines) from merged standard output and standard error, in that
-order. On failure to start the process, returns a single line describing the
-error.
-
-=cut
+    );
+}
 
 sub ipc_open3 {
-    my ($cmd) = @_;
+    my $command = shift;
 
-    if ( !defined $cmd || $cmd eq '' ) {
+    if ( !defined $command || $command eq '' ) {
         return ('PROC::ipc_open3: empty command');
     }
 
-    my ( $in_fh, $out_fh, $err_fh ) = ( gensym, gensym, gensym );
+    my @out;
+    my ( $wtr, $rdr, $err );
 
-    my $pid = eval {
-        open3( $in_fh, $out_fh, $err_fh, '/bin/sh', '-c', $cmd );
-    };
+    my $pid = open3( $wtr, $rdr, $err, $command );
+    close $wtr;
 
-    if ( !$pid ) {
-        my $err = $@ || 'unknown error';
-        chomp $err;
-        return ("PROC::ipc_open3: $err");
+    my $sel = IO::Select->new( $rdr, $err );
+
+    while ( $sel->count ) {
+        foreach my $fh ( $sel->can_read ) {
+            my $line = <$fh>;
+            if ( !defined $line ) {
+                $sel->remove($fh);
+                next;
+            }
+            chomp $line;
+            $line =~ s/\n//gx;
+            if ( $fh == $rdr ) {
+                push @out, $line;
+            }
+            elsif ( $fh == $err ) {
+                push @out, $line;
+            }
+            else {
+                die "Shouldn't be here\n";
+            }
+        }
     }
 
-    close $in_fh;
+    waitpid( $pid, 0 );
 
-    local $/;
-    my $stdout = readline $out_fh;
-    my $stderr = readline $err_fh;
-    close $out_fh;
-    close $err_fh;
-
-    waitpid $pid, 0;
-
-    $stdout = defined $stdout ? $stdout : '';
-    $stderr = defined $stderr ? $stderr : '';
-
-    return _split_lines( $stdout . $stderr );
-}
-
-sub _split_lines {
-    my ($text) = @_;
-    return if $text eq '';
-
-    my @lines;
-    open my $fh, '<', \$text or return ('PROC::ipc_open3: cannot open scalar');
-    while ( my $line = <$fh> ) {
-        chomp $line;
-        push @lines, $line;
-    }
-    close $fh;
-    return @lines;
+    return @out;
 }
 
 1;

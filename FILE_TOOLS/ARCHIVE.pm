@@ -37,7 +37,7 @@ BEGIN {
 
     # Functions and variables which are exported by default
     our @EXPORT = qw(
-        zip_separate,
+        zip_separate
         zip_file
     );
 
@@ -236,7 +236,7 @@ sub zip_separate{
             chomp($full_path);
 
             # Pass clean strings
-            if ($full_path =~ /^s*$/) {
+            if ($full_path =~ /^\s*$/) {
                 next;
             }
 
