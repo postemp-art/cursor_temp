@@ -1,0 +1,10 @@
+# Perl / build
+blib/
+pm_to_blib/
+MYMETA.*
+*.bak
+*~
+
+# OS
+.DS_Store
+Thumbs.db
